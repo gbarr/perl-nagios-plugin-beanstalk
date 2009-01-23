@@ -25,6 +25,7 @@
 \#$
 \b\.#
 \.bak$
+^\.perltidyrc$
 
 # Avoid Devel::Cover files.
 \bcover_db\b
