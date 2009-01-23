@@ -10,3 +10,4 @@ Nagios-Plugin-*
 cover_db
 *~
 *.bak
+.*.swp
