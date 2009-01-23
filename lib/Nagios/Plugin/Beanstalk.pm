@@ -9,14 +9,14 @@ use base qw(Nagios::Plugin);
 use Nagios::Plugin;
 use Beanstalk::Client;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 sub new {
   my $class = shift;
 
   my $usage = <<'USAGE';
-Usage: check_beanstalkd -H <host> [-p <port>] [-t <tube>] [-w <warn_time>] [-c <crit_time>]
+Usage: check_beanstalkd -H <host> [-a] [-p <port>] [-t <tube>] [-w <warn>] [-c <critical>]
 USAGE
 
   my $self = $class->SUPER::new(
@@ -46,14 +46,17 @@ sub _add_beanstalk_options {
     { spec => 'port|p=i',
       help => qq|-p, --port=INTEGER\n  Port number (default: 389)|,
     },
+    { spec => 'active|a!',
+      help => qq|-a [--active]\n  check active worker count instead of job age|,
+    },
     { spec => 'tube|t=s@',
       help => qq|-t [--tube]\n  tube to check, can give multiple|,
     },
     { spec => 'warning|w=f',
-      help => qq|-w, --warning=DOUBLE\n  Response time to result in warning status (seconds)|,
+      help => qq|-w, --warning=DOUBLE\n  Response time to result in warning status (seconds) or min worker count|,
     },
     { spec => 'critical|c=f',
-      help => qq|-c, --critical=DOUBLE\n  Response time to result in critical status (seconds)|,
+      help => qq|-c, --critical=DOUBLE\n  Response time to result in critical status (seconds) or min worker count|,
     },
   );
 
@@ -110,8 +113,13 @@ sub _check_beanstalk {
     @tube = grep { $tube{$_} } keys %tube;
   }
 
+  my $check_active = $self->opts->active;
+
   foreach my $tube (@tube) {
-    _check_tube($self, $client, $tube) or return;
+    return unless 
+    $check_active
+      ? _check_tube_active($self, $client, $tube)
+      : _check_tube($self, $client, $tube);
   }
 
   return 1;
@@ -150,6 +158,32 @@ sub _check_tube {
     label     => $tube,
     value     => $age,
     uom       => 's',
+    threshold => $self->threshold
+  );
+}
+
+sub _check_tube_active {
+  my ($self, $client, $tube) = @_;
+
+  warn "Checking $tube\n" if $self->opts->verbose;
+
+  my $warning  = $self->opts->warning  || 1;
+  my $critical = $self->opts->critical || $warning;
+  my $workers  = 0;
+
+  for (1 .. 10) {
+    my $stats = $client->stats_tube($tube) or last;
+    my $w = $stats->current_jobs_reserved + $stats->current_waiting;
+    $workers = $w if $w > $workers;
+    last if $workers >= $warning;
+    select(undef, undef, undef, 0.1);
+  }
+
+  $self->set_thresholds(warning => $warning . ":", critical => $critical . ":");
+  $self->add_message($self->check_threshold($workers), "tube $tube has $workers workers");
+  $self->add_perfdata(
+    label     => $tube,
+    value     => $workers,
     threshold => $self->threshold
   );
 }
@@ -193,12 +227,14 @@ This plugin can execute with all threshold options together.
       Host name, IP Address, or unix socket (must be an absolute path)
    -p, --port=INTEGER
       Port number (default: 389)
+   -a [--active]
+      Check active worker count instead of job age
    -t [--tube]
       Tube name to watch, can be multiple. 
    -w, --warning=DOUBLE
-      Response time to result in warning status (seconds)
+      Response time to result in warning status (seconds), or min worker count
    -c, --critical=DOUBLE
-      Response time to result in critical status (seconds)
+      Response time to result in critical status (seconds), or min worker count
    -v, --verbose
       Show details for command-line debugging (Nagios may truncate output)
 
