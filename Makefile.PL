@@ -11,6 +11,7 @@ WriteMakefile(
   EXE_FILES    => ['check_beanstalkd'],
   PREREQ_PM => {
     'Nagios::Plugin' => 0,
+    'Beanstalk::Client' => 0,
     'Test::More' => 0,
   },
   dist     => {COMPRESS => 'gzip -9f', SUFFIX => 'gz',},
