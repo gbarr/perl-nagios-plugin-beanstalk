@@ -1,0 +1,11 @@
+0.03 2009-03-05
+
+    Add option to only check age of urgent jobs
+
+0.02 2009-01-23
+
+    Add option to check count of active workers instead of first job age
+
+0.01 2008-30-12
+
+    Initial version

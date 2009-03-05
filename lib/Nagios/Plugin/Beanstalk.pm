@@ -9,14 +9,14 @@ use base qw(Nagios::Plugin);
 use Nagios::Plugin;
 use Beanstalk::Client;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 sub new {
   my $class = shift;
 
   my $usage = <<'USAGE';
-Usage: check_beanstalkd -H <host> [-a] [-p <port>] [-t <tube>] [-w <warn>] [-c <critical>]
+Usage: check_beanstalkd -H <host> [-au] [-p <port>] [-t <tube>] [-w <warn>] [-c <critical>]
 USAGE
 
   my $self = $class->SUPER::new(
@@ -48,6 +48,9 @@ sub _add_beanstalk_options {
     },
     { spec => 'active|a!',
       help => qq|-a [--active]\n  check active worker count instead of job age|,
+    },
+    { spec => 'urgent|u!',
+      help => qq|-u [--urgent]\n  only check the age of urgent jobs|,
     },
     { spec => 'tube|t=s@',
       help => qq|-t [--tube]\n  tube to check, can give multiple|,
@@ -133,26 +136,38 @@ sub _check_tube {
   $client->use($tube) or return;
 
   my $age = 0;
+  my $urgent = $self->opts->urgent;
 
-  foreach my $i (1 .. 5) {
-    if (my $job = $client->peek_ready) {
-      my $stats = $job->stats or return;
+  my $stats_tube;
+  if ($urgent) {
+    $stats_tube = $client->stats_tube($tube) or return;
+  }
 
-      # If the job got reserved between the peek ans stats, then try again
-      next if $stats->state eq 'reserved';
+  if (!$stats_tube or $stats_tube->current_jobs_urgent) {
+    foreach my $i (1 .. 5) {
+      if (my $job = $client->peek_ready) {
+        my $stats = $job->stats or return;
 
-      $age = $stats->age;
-      last;
-    }
-    elsif ($client->error =~ /NOT_FOUND/) {
+        # If the job got reserved between the peek and stats, then try again
+        next if $stats->state eq 'reserved';
 
-      # There are no ready jobs, so all is ok
-      last;
-    }
-    else {
-      return;
+        # If only urgent jobs requested, then exit
+        last if $urgent and $stats->priority >= 1024;
+
+        $age = $stats->age;
+        last;
+      }
+      elsif ($client->error =~ /NOT_FOUND/) {
+
+        # There are no ready jobs, so all is ok
+        last;
+      }
+      else {
+        return;
+      }
     }
   }
+
   $self->add_message($self->check_threshold($age), "tube $tube is $age seconds old");
   $self->add_perfdata(
     label     => $tube,
