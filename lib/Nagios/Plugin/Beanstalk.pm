@@ -9,7 +9,7 @@ use base qw(Nagios::Plugin);
 use Nagios::Plugin;
 use Beanstalk::Client;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 
 sub new {
@@ -152,7 +152,7 @@ sub _check_tube {
         next if $stats->state eq 'reserved';
 
         # If only urgent jobs requested, then exit
-        last if $urgent and $stats->priority >= 1024;
+        last if $urgent and $stats->pri >= 1024;
 
         $age = $stats->age;
         last;

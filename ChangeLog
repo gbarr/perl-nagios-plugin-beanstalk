@@ -1,3 +1,7 @@
+0.04 2009-03-19
+
+   Fix method name for fetching job priority
+
 0.03 2009-03-05
 
     Add option to only check age of urgent jobs
