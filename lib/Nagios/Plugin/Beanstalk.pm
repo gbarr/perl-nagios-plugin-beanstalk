@@ -220,7 +220,7 @@ Nagios::Plugin::Beanstalk - Nagios plugin to observe Beanstalkd queue server.
 
 Please setup your nagios config.
 
-  ### check response time(msec) for Beanstalk
+  ### check tube age (seconds) for Beanstalk
   define command {
     command_name    check_beanstalkd
     command_line    /usr/bin/check_beanstalkd -H $HOSTADDRESS$ -w 15 -c 60
@@ -247,9 +247,9 @@ This plugin can execute with all threshold options together.
    -t [--tube]
       Tube name to watch, can be multiple. 
    -w, --warning=DOUBLE
-      Response time to result in warning status (seconds), or min worker count
+      Tube age to result in warning status (seconds), or min worker count
    -c, --critical=DOUBLE
-      Response time to result in critical status (seconds), or min worker count
+      Tube age to result in critical status (seconds), or min worker count
    -v, --verbose
       Show details for command-line debugging (Nagios may truncate output)
 
