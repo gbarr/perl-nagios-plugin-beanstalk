@@ -56,10 +56,10 @@ sub _add_beanstalk_options {
       help => qq|-t [--tube]\n  tube to check, can give multiple|,
     },
     { spec => 'warning|w=f',
-      help => qq|-w, --warning=DOUBLE\n  Response time to result in warning status (seconds) or min worker count|,
+      help => qq|-w, --warning=DOUBLE\n  Tube age to result in warning status (seconds) or min worker count|,
     },
     { spec => 'critical|c=f',
-      help => qq|-c, --critical=DOUBLE\n  Response time to result in critical status (seconds) or min worker count|,
+      help => qq|-c, --critical=DOUBLE\n  Tube age to result in critical status (seconds) or min worker count|,
     },
   );
 
@@ -135,7 +135,7 @@ sub _check_tube {
 
   $client->use($tube) or return;
 
-  my $age = 0;
+  my $age_minus_delay = 0;
   my $urgent = $self->opts->urgent;
 
   my $stats_tube;
@@ -154,7 +154,7 @@ sub _check_tube {
         # If only urgent jobs requested, then exit
         last if $urgent and $stats->pri >= 1024;
 
-        $age = $stats->age;
+        $age_minus_delay = $stats->age - $stats->delay;
         last;
       }
       elsif ($client->error =~ /NOT_FOUND/) {
@@ -168,10 +168,10 @@ sub _check_tube {
     }
   }
 
-  $self->add_message($self->check_threshold($age), "tube $tube is $age seconds old");
+  $self->add_message($self->check_threshold($age_minus_delay), "tube $tube is $age_minus_delay seconds old");
   $self->add_perfdata(
     label     => $tube,
-    value     => $age,
+    value     => $age_minus_delay,
     uom       => 's',
     threshold => $self->threshold
   );
