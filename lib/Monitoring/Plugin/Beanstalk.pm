@@ -1,15 +1,15 @@
-package Nagios::Plugin::Beanstalk;
+package Monitoring::Plugin::Beanstalk;
 # vim: ts=8:sw=2:expandtab
 
 use strict;
 use warnings;
 
-use base qw(Nagios::Plugin);
+use base qw(Monitoring::Plugin);
 
-use Nagios::Plugin;
+use Monitoring::Plugin;
 use Beanstalk::Client;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 
 sub new {
@@ -207,13 +207,13 @@ __END__
 
 =head1 NAME
 
-Nagios::Plugin::Beanstalk - Nagios plugin to observe Beanstalkd queue server.
+Monitoring::Plugin::Beanstalk - Monitoring plugin to observe Beanstalkd queue server.
 
 =head1 SYNOPSIS
 
-  use Nagios::Plugin::Beanstalk;
+  use Monitoring::Plugin::Beanstalk;
 
-  my $np = Nagios::Plugin::Beanstalk->new;
+  my $np = Monitoring::Plugin::Beanstalk->new;
   $np->run;
 
 =head1 DESCRIPTION

@@ -2,7 +2,7 @@
 \B\.shipit$
 \B\.gitignore$
 \B\.DS_Store$
-^Nagios-Plugin-Beanstalk
+^Monitoring-Plugin-Beanstalk
 
 \B\.git\b
 
