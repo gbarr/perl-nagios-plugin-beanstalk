@@ -3,14 +3,14 @@ use warnings;
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-  NAME         => 'Nagios::Plugin::Beanstalk',
+  NAME         => 'Monitoring::Plugin::Beanstalk',
   AUTHOR       => 'Graham Barr <gbarr@pobox.com>',
-  VERSION_FROM => 'lib/Nagios/Plugin/Beanstalk.pm',
-  ABSTRACT_FROM => 'lib/Nagios/Plugin/Beanstalk.pm',
+  VERSION_FROM => 'lib/Monitoring/Plugin/Beanstalk.pm',
+  ABSTRACT_FROM => 'lib/Monitoring/Plugin/Beanstalk.pm',
   PL_FILES     => {},
   EXE_FILES    => ['check_beanstalkd'],
   PREREQ_PM => {
-    'Nagios::Plugin' => 0,
+    'Monitoring::Plugin' => 0,
     'Beanstalk::Client' => 0,
     'Test::More' => 0,
   },
