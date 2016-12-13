@@ -154,7 +154,7 @@ sub _check_tube {
   if (!$stats_tube or $stats_tube->current_jobs_urgent) {
     foreach my $i (1 .. 5) {
       if (my $job = $client->peek_ready) {
-        my $stats = $job->stats or return;
+        my $stats = $job->stats or next; # If job was deleted, try again
 
         # If the job got reserved between the peek and stats, then try again
         next if $stats->state eq 'reserved';
