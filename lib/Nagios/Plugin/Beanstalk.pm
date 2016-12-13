@@ -49,6 +49,9 @@ sub _add_beanstalk_options {
     { spec => 'active|a!',
       help => qq|-a [--active]\n  check active worker count instead of job age|,
     },
+    { spec => 'buried|b!',
+      help => qq|-b [--buried]\n  check buried job count instead of ready job age|,
+    },
     { spec => 'urgent|u!',
       help => qq|-u [--urgent]\n  only check the age of urgent jobs|,
     },
@@ -117,12 +120,16 @@ sub _check_beanstalk {
   }
 
   my $check_active = $self->opts->active;
+  my $check_buried = $self->opts->buried;
 
   foreach my $tube (@tube) {
-    return unless 
-    $check_active
-      ? _check_tube_active($self, $client, $tube)
-      : _check_tube($self, $client, $tube);
+    if ($check_active) {
+        return unless _check_tube_active($self, $client, $tube);
+    } elsif ($check_buried) {
+        return unless _check_tube_buried($self, $client, $tube);
+    } else {
+        return unless _check_tube($self, $client, $tube);
+    }
   }
 
   return 1;
@@ -135,10 +142,11 @@ sub _check_tube {
 
   $client->use($tube) or return;
 
-  my $age = 0;
+  my $age_minus_delay = 0;
   my $urgent = $self->opts->urgent;
 
   my $stats_tube;
+
   if ($urgent) {
     $stats_tube = $client->stats_tube($tube) or return;
   }
@@ -146,7 +154,7 @@ sub _check_tube {
   if (!$stats_tube or $stats_tube->current_jobs_urgent) {
     foreach my $i (1 .. 5) {
       if (my $job = $client->peek_ready) {
-        my $stats = $job->stats or return;
+        my $stats = $job->stats or next; # If job was deleted, try again
 
         # If the job got reserved between the peek and stats, then try again
         next if $stats->state eq 'reserved';
@@ -154,7 +162,7 @@ sub _check_tube {
         # If only urgent jobs requested, then exit
         last if $urgent and $stats->pri >= 1024;
 
-        $age = $stats->age;
+        $age_minus_delay = $stats->age - $stats->delay;
         last;
       }
       elsif ($client->error =~ /NOT_FOUND/) {
@@ -168,10 +176,10 @@ sub _check_tube {
     }
   }
 
-  $self->add_message($self->check_threshold($age), "tube $tube is $age seconds old");
+  $self->add_message($self->check_threshold($age_minus_delay), "tube $tube is $age_minus_delay seconds old");
   $self->add_perfdata(
     label     => $tube,
-    value     => $age,
+    value     => $age_minus_delay,
     uom       => 's',
     threshold => $self->threshold
   );
@@ -203,6 +211,26 @@ sub _check_tube_active {
   );
 }
 
+sub _check_tube_buried {
+  my ($self, $client, $tube) = @_;
+
+  warn "Checking $tube\n" if $self->opts->verbose;
+
+  my $warning  = $self->opts->warning  || 1;
+  my $critical = $self->opts->critical || $warning;
+
+  my $stats = $client->stats_tube($tube) or return;
+  my $buried = $stats->current_jobs_buried;
+  
+  $self->set_thresholds(warning => $warning, critical => $critical);
+  $self->add_message($self->check_threshold($buried), "tube $tube has $buried buried jobs");
+  $self->add_perfdata(
+    label     => $tube,
+    value     => $buried,
+    threshold => $self->threshold
+  );
+}
+
 __END__
 
 =head1 NAME
@@ -220,7 +248,7 @@ Nagios::Plugin::Beanstalk - Nagios plugin to observe Beanstalkd queue server.
 
 Please setup your nagios config.
 
-  ### check tube age (seconds) for Beanstalk
+  ### check response time(msec) for Beanstalk
   define command {
     command_name    check_beanstalkd
     command_line    /usr/bin/check_beanstalkd -H $HOSTADDRESS$ -w 15 -c 60
@@ -244,12 +272,14 @@ This plugin can execute with all threshold options together.
       Port number (default: 389)
    -a [--active]
       Check active worker count instead of job age
+   -b [--buried]
+      Check buried job count instead of ready job age
    -t [--tube]
       Tube name to watch, can be multiple. 
    -w, --warning=DOUBLE
-      Tube age to result in warning status (seconds), or min worker count
+      Response time to result in warning status (seconds), or min worker count
    -c, --critical=DOUBLE
-      Tube age to result in critical status (seconds), or min worker count
+      Response time to result in critical status (seconds), or min worker count
    -v, --verbose
       Show details for command-line debugging (Nagios may truncate output)
 
